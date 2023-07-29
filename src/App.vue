@@ -7,11 +7,25 @@
 
 <script>
 import MainPageComponent from "@/components/MainPageComponent.vue";
-
 export default {
   name: 'App',
   components: {
     MainPageComponent,
+  },
+  mounted() {
+    this.generateNick()
+  },
+  methods: {
+    generateNick(){
+      let nick = this.$store.getters.nickname;
+      if (!nick){
+        nick = `player-${(Math.random() + 1).toString(36).substring(7)}`
+        this.$store.commit('setNickName', nick)
+        this.nickname = nick
+      }else{
+        this.nickname = nick
+      }
+    },
   }
 }
 </script>

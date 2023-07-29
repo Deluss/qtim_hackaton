@@ -1,5 +1,10 @@
 <template>
   <div class="right-menu">
+    <div class="nickname">
+      <label>
+        <input disabled :value="this.$store.getters.nickname">
+      </label>
+    </div>
     <div class="sidenav">
       <rooms-list-component v-on:open-room="openRoomFromRightMenu"/>
     </div>
@@ -13,7 +18,17 @@ export default {
   name: "RoomsRightMenuComponent",
   emits: ['open-room'],
   components: {RoomsListComponent},
+  data(){
+    return{
+      nickname: undefined
+    }
+  },
+  mounted() {
+
+
+  },
   methods: {
+
     openRoomFromRightMenu(elemId){
       this.$emit('open-room', elemId);
     }
