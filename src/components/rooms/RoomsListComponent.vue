@@ -28,7 +28,7 @@ export default {
       }
   },
   mounted() {
-    this.url = process.env.VUE_APP_BACKROOM_URL
+    this.url = process.env.VUE_APP_API
     this.joinRoom()
   },
   methods: {

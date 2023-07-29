@@ -3,7 +3,7 @@
 		<div class="game__container">
 			<div class="game__header">
 				<div class="game__theme">
-					Тема: Животное
+					Тема: {{ theme }}
 				</div>
 				<div class="game__timer">
 					{{ formatSecondsToMinutesSeconds }}
@@ -54,16 +54,39 @@ export default {
 	name: 'GamePage',
 	data () {
 		return {
+			theme: '',
 			attempts: 0,
 			timer: 300,
 			wordLength: 5,
 			alphabet: ['а', 'б', 'в', 'г', 'д', 'е', 'ё', 'ж', 'з', 'и', 'й', 'к', 'л', 'м', 'н', 'о', 'п', 'р', 'с', 'т', 'у', 'ф', 'х', 'ц', 'ч', 'ш', 'щ', 'ъ', 'ы', 'ь', 'э', 'ю', 'я'],
 			lettersList: [],
+			currentWord: '',
 			intervalId: null,
 			searchWord: [],
 			showFinish: false,
 			finishMessage: '',
-			audio: new Audio(require('@/assets/pencil.mp3'))
+			audio: new Audio(require('@/assets/pencil.mp3')),
+			items: [{
+				theme: 'Еда',
+				list: [
+					'хлеб', 'суп', 'салат', 'пирог', 'торт', 'пицца', 'макароны', 'рис',
+					'картофель', 'мясо', 'рыба', 'яйцо', 'сыр', 'молоко', 'йогурт',
+					'фрукты', 'яблоко', 'апельсин', 'банан', 'виноград', 'помидор',
+					'огурец', 'лук', 'чеснок', 'морковь', 'капуста', 'грибы',
+					'чай', 'кофе', 'сахар', 'соль', 'перец', 'масло', 'кетчуп',
+					'горчица', 'вода', 'сок', 'кола', 'пиво','вино', 'торт',
+					'пирожное', 'мороженое', 'шоколад', 'конфеты', 'орехи',
+					'изюм', 'мёд', 'десерт'
+				]}, {
+				theme: 'Одежда',
+				list: ['куртка',
+					'пальто', 'пуховик', 'свитер', 'джемпер', 'рубашка', 'футболка',
+					'майка', 'блуза', 'платье', 'юбка', 'брюки', 'джинсы', 'шорты',
+					'колготки', 'носки', 'трусы', 'лифчик', 'тапочки', 'туфли', 'ботинки',
+					'сапоги', 'шапка', 'шарф', 'перчатки', 'костюм', 'пиджак', 'галстук', 'платок',
+					'сумка', 'рюкзак', 'кошелек', 'очки', 'часы', 'украшения', 'пояс', 'шляпа',
+				]
+			}]
 		}
 	},
 	computed: {
@@ -81,12 +104,21 @@ export default {
 	mounted () {
 		this.lettersList = this.createLettersList()
 		this.runTimer()
-		for (let i = 0; i < this.wordLength; i++) {
-			this.searchWord.push('')
-		}
-		console.log('this.searchWord', this.searchWord)
+		this.generateWord()
 	},
 	methods: {
+		generateWord () {
+			const randomItem = this.items[Math.floor(Math.random() * this.items.length)]
+			const randomValue = randomItem.list[Math.floor(Math.random() * randomItem.list.length)]
+
+			this.theme = randomItem.theme
+			this.currentWord = randomValue
+			console.log(this.currentWord)
+
+			for (let i = 0; i < this.currentWord.length; i++) {
+				this.searchWord.push('')
+			}
+		},
 		createLettersList () {
 			return this.alphabet.map(letter => {
 				return {
@@ -108,18 +140,16 @@ export default {
 			}, 1000)
 		},
 		checkLetter (item) {
-			if (item.letter === 'к') {
+			const positions = []
+			for (let i = 0; i < this.currentWord.length; i++) {
+				if (this.currentWord[i] === item.letter) {
+					positions.push(i);
+				}
+			}
+			if (positions.length) {
 				item.state = 'exist'
-				item.position = [0, 3]
-			} else if (item.letter === 'о') {
-				item.state = 'exist'
-				item.position = [1]
-			} else if (item.letter === 'ш') {
-				item.state = 'exist'
-				item.position = [2]
-			} else if (item.letter === 'а') {
-				item.state = 'exist'
-				item.position = [4]
+				item.position = positions
+
 			} else {
 				item.state = 'absent'
 				item.position = []
@@ -133,6 +163,32 @@ export default {
 					this.intervalId = null
 				}
 			}
+
+			// if (item.letter === 'к') {
+			// 	item.state = 'exist'
+			// 	item.position = [0, 3]
+			// } else if (item.letter === 'о') {
+			// 	item.state = 'exist'
+			// 	item.position = [1]
+			// } else if (item.letter === 'ш') {
+			// 	item.state = 'exist'
+			// 	item.position = [2]
+			// } else if (item.letter === 'а') {
+			// 	item.state = 'exist'
+			// 	item.position = [4]
+			// } else {
+			// 	item.state = 'absent'
+			// 	item.position = []
+			// 	this.attempts += 1
+			// 	this.playSound()
+			// 	this.drawHangman()
+			// 	if (this.attempts === 10) {
+			// 		this.finishMessage = 'Вы проиграли'
+			// 		this.showFinish = true
+			// 		clearInterval(this.intervalId)
+			// 		this.intervalId = null
+			// 	}
+			// }
 			this.setPosition(item)
 		},
 		setPosition (item) {
@@ -140,10 +196,19 @@ export default {
 				item.position.map(position => {
 					this.searchWord[position] = item.letter
 				})
+
+				const count = this.searchWord.filter(item => item !== '').length
+
+				if (count === this.currentWord.length) {
+					clearInterval(this.intervalId)
+					this.intervalId = null
+					this.showFinish = true
+					this.finishMessage = 'Вы выйграли'
+				}
 			}
 		},
 		playSound () {
-			this.audio.playbackRate = 1.3
+			this.audio.playbackRate = 1
 			this.audio.play()
 		},
 		drawHangman() {
