@@ -5,7 +5,12 @@
 				<div class="game__theme">
 					Тема: {{ theme }}
 				</div>
-				<div class="game__timer">
+				<div :class="['game__timer', { 'game__timer_warning': getTimer <= warningTimer }]">
+					<img
+						class="game__clock"
+						src="@/assets/clock.svg"
+						alt="clock"
+					>
 					{{ formatSecondsToMinutesSeconds }}
 				</div>
 			</div>
@@ -17,7 +22,17 @@
 							class="game__finish"
 						>
 							<div class="game__finish-content">
-								{{ finishMessage }}
+								<div class="game__finish-wrapper">
+									<div class="game__finish-text">
+										{{ finishMessage }}
+									</div>
+									<button
+										class="game__finish-btn"
+										@click="reset"
+									>
+										Играть снова
+									</button>
+								</div>
 							</div>
 						</div>
 					</transition>
@@ -26,6 +41,9 @@
 							v-for="(wordLetter, index) in searchWord"
 							:key="`wordletter-${index}`"
 							class="game__word-letter"
+							:style="{
+								width: `calc(100% / ${searchWord.length})`
+							}"
 						>
 							{{ wordLetter }}
 						</div>
@@ -42,7 +60,13 @@
 					</div>
 				</div>
 				<div class="game__gallows">
-					<canvas id="hangmanCanvas" width="400" height="400" ref="hangmanCanvas" />
+					<canvas
+						id="hangmanCanvas"
+						ref="hangmanCanvas"
+						width="300"
+						height="400"
+						class="game__canvas"
+					/>
 				</div>
 			</div>
 		</div>
@@ -57,7 +81,8 @@ export default {
 			theme: '',
 			attempts: 0,
 			timer: 300,
-			wordLength: 5,
+			maxTimer: 300,
+			warningTimer: 30,
 			alphabet: ['а', 'б', 'в', 'г', 'д', 'е', 'ё', 'ж', 'з', 'и', 'й', 'к', 'л', 'м', 'н', 'о', 'п', 'р', 'с', 'т', 'у', 'ф', 'х', 'ц', 'ч', 'ш', 'щ', 'ъ', 'ы', 'ь', 'э', 'ю', 'я'],
 			lettersList: [],
 			currentWord: '',
@@ -65,7 +90,11 @@ export default {
 			searchWord: [],
 			showFinish: false,
 			finishMessage: '',
-			audio: new Audio(require('@/assets/pencil.mp3')),
+			pencil: new Audio(require('@/assets/pencil.mp3')),
+			tickTock: new Audio(require('@/assets/tickTock.mp3')),
+			gameOver: new Audio(require('@/assets/gameOver.mp3')),
+			win: new Audio(require('@/assets/win.mp3')),
+			welcomePage: true,
 			items: [{
 				theme: 'Еда',
 				list: [
@@ -99,14 +128,39 @@ export default {
 			const formattedMinutes = String(minutes).padStart(2, '0');
 			const formattedSeconds = String(remainingSeconds).padStart(2, '0');
 			return `${ formattedMinutes }:${ formattedSeconds }`;
+		},
+		getTimer () {
+			return this.timer
 		}
 	},
 	mounted () {
-		this.lettersList = this.createLettersList()
-		this.runTimer()
-		this.generateWord()
+		this.init()
 	},
 	methods: {
+		init () {
+			this.win.pause()
+			this.win.currentTime = 0
+			this.tickTock.pause()
+			this.tickTock.currentTime = 0
+			this.gameOver.pause()
+			this.gameOver.currentTime = 0
+			this.clearCanvas()
+			this.searchWord = []
+			this.lettersList = this.createLettersList()
+			this.runTimer()
+			this.generateWord()
+		},
+		clearCanvas () {
+			this.attempts = 0
+			const canvas = this.$refs.hangmanCanvas;
+			const ctx = canvas.getContext('2d');
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+		},
+		reset () {
+			this.showFinish = false
+			this.finishMessage = ''
+			this.init()
+		},
 		generateWord () {
 			const randomItem = this.items[Math.floor(Math.random() * this.items.length)]
 			const randomValue = randomItem.list[Math.floor(Math.random() * randomItem.list.length)]
@@ -129,67 +183,53 @@ export default {
 			})
 		},
 		runTimer () {
+			this.timer = this.maxTimer
 			this.intervalId = setInterval(() => {
 				this.timer -= 1
 				if (this.timer === 0) {
-					clearInterval(this.intervalId)
-					this.intervalId = null
-					this.finishMessage = 'Время вышло лошара'
-					this.showFinish = true
+					this.tickTock.pause()
+					this.tickTock.currentTime = 0
+					this.showGameOver('Время вышло. Вы проиграли :(')
+				}
+				if (this.timer === this.warningTimer) {
+					this.tickTock.play()
 				}
 			}, 1000)
 		},
+		showGameOver (text = 'Вы проиграли :(') {
+			this.tickTock.pause()
+			this.tickTock.currentTime = 0
+			this.gameOver.play()
+			this.finishMessage = text
+			this.showFinish = true
+			clearInterval(this.intervalId)
+			this.intervalId = null
+		},
 		checkLetter (item) {
-			const positions = []
-			for (let i = 0; i < this.currentWord.length; i++) {
-				if (this.currentWord[i] === item.letter) {
-					positions.push(i);
+			if (item.state === 'unchecked') {
+				const positions = []
+				for (let i = 0; i < this.currentWord.length; i++) {
+					if (this.currentWord[i] === item.letter) {
+						positions.push(i);
+					}
 				}
-			}
-			if (positions.length) {
-				item.state = 'exist'
-				item.position = positions
+				if (positions.length) {
+					item.state = 'exist'
+					item.position = positions
 
-			} else {
-				item.state = 'absent'
-				item.position = []
-				this.attempts += 1
-				this.playSound()
-				this.drawHangman()
-				if (this.attempts === 10) {
-					this.finishMessage = 'Вы проиграли'
-					this.showFinish = true
-					clearInterval(this.intervalId)
-					this.intervalId = null
+				} else {
+					item.state = 'absent'
+					item.position = []
+					this.attempts += 1
+					this.playPencil()
+					this.drawHangman()
+					if (this.attempts === 10) {
+						this.showGameOver('Вы проиграли :(')
+					}
 				}
-			}
 
-			// if (item.letter === 'к') {
-			// 	item.state = 'exist'
-			// 	item.position = [0, 3]
-			// } else if (item.letter === 'о') {
-			// 	item.state = 'exist'
-			// 	item.position = [1]
-			// } else if (item.letter === 'ш') {
-			// 	item.state = 'exist'
-			// 	item.position = [2]
-			// } else if (item.letter === 'а') {
-			// 	item.state = 'exist'
-			// 	item.position = [4]
-			// } else {
-			// 	item.state = 'absent'
-			// 	item.position = []
-			// 	this.attempts += 1
-			// 	this.playSound()
-			// 	this.drawHangman()
-			// 	if (this.attempts === 10) {
-			// 		this.finishMessage = 'Вы проиграли'
-			// 		this.showFinish = true
-			// 		clearInterval(this.intervalId)
-			// 		this.intervalId = null
-			// 	}
-			// }
-			this.setPosition(item)
+				this.setPosition(item)
+			}
 		},
 		setPosition (item) {
 			if (item.position.length) {
@@ -204,117 +244,112 @@ export default {
 					this.intervalId = null
 					this.showFinish = true
 					this.finishMessage = 'Вы выйграли'
+					this.tickTock.pause()
+					this.tickTock.currentTime = 0
+					this.win.play()
 				}
 			}
 		},
-		playSound () {
-			this.audio.playbackRate = 1
-			this.audio.play()
+		playPencil () {
+			this.pencil.playbackRate = 1
+			this.pencil.play()
 		},
 		drawHangman() {
 			const canvas = this.$refs.hangmanCanvas;
 			const ctx = canvas.getContext('2d');
 
-			ctx.clearRect(0, 0, canvas.width, canvas.height);
+			switch (this.attempts) {
+				case 1:
+					// Основание
+					ctx.beginPath()
+					ctx.moveTo(50, 400)
+					ctx.lineTo(400, 400)
+					ctx.stroke()
+					break
+				case 2:
+					// Вертикальная палка вверх
+					ctx.beginPath();
+					ctx.moveTo(50, 0);
+					ctx.lineTo(50, 400);
+					ctx.stroke();
+					break
+				case 3:
+					// Горизонтальная линия наверху
+					ctx.beginPath();
+					ctx.moveTo(0, 0);
+					ctx.lineTo(250, 0);
+					ctx.stroke();
 
-			if (this.attempts >= 1) {
-				ctx.beginPath();
-				ctx.moveTo(50, 400);
-				ctx.lineTo(400, 400);
-				ctx.stroke();
-			}
+					// Перемычка
+					ctx.beginPath();
+					ctx.moveTo(100, 0);
+					ctx.lineTo(50, 50);
+					ctx.stroke();
+					break
+				case 4:
+					// Веревка
+					ctx.beginPath();
+					ctx.moveTo(250, 0);
+					ctx.lineTo(250, 60);
+					ctx.stroke();
+					break
+				case 5:
+					// Голова
+					ctx.beginPath();
+					ctx.arc(250, 90, 30, 0, Math.PI * 2);
+					ctx.stroke();
+					break
+				case 6:
+					// Тело
+					ctx.beginPath();
+					ctx.moveTo(250, 120);
+					ctx.lineTo(250, 250);
+					ctx.stroke();
+					break
+				case 7:
+					// Рука 1
+					ctx.beginPath();
+					ctx.moveTo(250, 140);
+					ctx.lineTo(220, 200);
+					ctx.stroke();
+					break
+				case 8:
+					// Рука 2
+					ctx.beginPath();
+					ctx.moveTo(250, 140);
+					ctx.lineTo(280, 200);
+					ctx.stroke();
+					break
+				case 9:
+					// Нога 1
+					ctx.beginPath();
+					ctx.moveTo(250, 250);
+					ctx.lineTo(220, 310);
+					ctx.stroke();
+					break
+				case 10:
+					// Нога 2
+					ctx.beginPath();
+					ctx.moveTo(250, 250);
+					ctx.lineTo(280, 310);
+					ctx.stroke();
 
-			if (this.attempts >= 2) {
-				// Вертикальная палка вверх (вертикальная линия)
-				ctx.beginPath();
-				ctx.moveTo(50, 0);
-				ctx.lineTo(50, 400);
-				ctx.stroke();
-			}
+					//  Глаз 1
+					ctx.beginPath();
+					ctx.moveTo(235, 80);
+					ctx.lineTo(245, 90);
+					ctx.moveTo(235, 90);
+					ctx.lineTo(245, 80);
+					ctx.stroke();
 
-			if (this.attempts >= 3) {
-				// Горизонтальная линия (палка для виселицы)
-				ctx.beginPath();
-				ctx.moveTo(0, 0);
-				ctx.lineTo(250, 0);
-				ctx.stroke();
-
-				// Перемычка
-				ctx.beginPath();
-				ctx.moveTo(100, 0);
-				ctx.lineTo(50, 50);
-				ctx.stroke();
-			}
-
-			if (this.attempts >= 4) {
-				// Веревка
-				ctx.beginPath();
-				ctx.moveTo(250, 0);
-				ctx.lineTo(250, 60);
-				ctx.stroke();
-			}
-
-			if (this.attempts >= 5) {
-				// Голова (круг)
-				ctx.beginPath();
-				ctx.arc(250, 90, 30, 0, Math.PI * 2);
-				ctx.stroke();
-			}
-
-			if (this.attempts >= 6) {
-				// Тело
-				ctx.beginPath();
-				ctx.moveTo(250, 120);
-				ctx.lineTo(250, 250);
-				ctx.stroke();
-			}
-
-			if (this.attempts >= 7) {
-				// Рука 1
-				ctx.beginPath();
-				ctx.moveTo(250, 140);
-				ctx.lineTo(220, 200);
-				ctx.stroke();
-			}
-
-			if (this.attempts >= 8) {
-				// Рука 2
-				ctx.beginPath();
-				ctx.moveTo(250, 140);
-				ctx.lineTo(280, 200);
-				ctx.stroke();
-			}
-
-			if (this.attempts >= 9) {
-				// Нога 1
-				ctx.beginPath();
-				ctx.moveTo(250, 250);
-				ctx.lineTo(220, 310);
-				ctx.stroke();
-			}
-
-			if (this.attempts >= 10) {
-				// Нога 2
-				ctx.beginPath();
-				ctx.moveTo(250, 250);
-				ctx.lineTo(280, 310);
-				ctx.stroke();
-
-				//  Глаз 1
-				ctx.beginPath();
-				ctx.moveTo(235, 80);
-				ctx.lineTo(245, 90);
-				ctx.moveTo(235, 90);
-				ctx.lineTo(245, 80);
-				ctx.stroke();
-
-				// Глаз 2
-				ctx.beginPath();
-				ctx.moveTo(255, 80);
-				ctx.lineTo(265, 90);
-				ctx.moveTo(255, 90);
-				ctx.lineTo(265, 80);
-				ctx.stroke();
+					// Глаз 2
+					ctx.beginPath();
+					ctx.moveTo(255, 80);
+					ctx.lineTo(265, 90);
+					ctx.moveTo(255, 90);
+					ctx.lineTo(265, 80);
+					ctx.stroke();
+					break
 			}
 		}
 	}
@@ -323,11 +358,8 @@ export default {
 
 <style lang="scss" scoped>
 .game {
-	font-family: 'Roboto', sans-serif;
-	padding-left: 25%;
-
 	&__finish {
-		position: absolute;
+		position: fixed;
 		top: 0;
 		left: 0;
 		width: 100%;
@@ -335,7 +367,8 @@ export default {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: #fff;
+		background: rgba(0, 0, 0, .1);
+		backdrop-filter: blur(4px);
 		z-index: 1;
 
 		&-content {
@@ -344,21 +377,43 @@ export default {
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			background: lightgray;
+			background: #fff;
 			font-size: 25px;
-			border-radius: 5px;
+			border-radius: 10px;
+			box-shadow: 0 0 15px 0 rgba(0,0,0,0.1);
+		}
+
+		&-btn {
+			background: #fff;
+			border: 1px solid #2c3e50;
+			margin-top: 20px;
+			border-radius: 10px;
+			font-size: 18px;
+			padding: 12px 24px;
+			transition: .2s ease;
+			cursor: pointer;
+
+			&:hover {
+				background: #2c3e50;
+				color: #fff;
+			}
 		}
 	}
 
 	&__container {
 		margin: 0 auto;
 		max-width: 1000px;
-		padding: 50px 0;
+		padding: 50px;
+		box-shadow: 0 0 15px -3px rgba(0,0,0,0.1);
 	}
 
 	&__header {
 		display: flex;
 		justify-content: space-between;
+		align-items: center;
+		border: 1px solid #5e5e5e;
+		padding: 20px;
+		border-radius: 20px;
 	}
 
 	&__theme {
@@ -367,13 +422,23 @@ export default {
 
 	&__timer {
 		border-radius: 15px;
-		background: #D9D9D9;
 		font-size: 35px;
 		width: 255px;
 		height: 44px;
 		display: flex;
 		align-items: center;
 		justify-content: center;
+
+		&_warning {
+			color: #be2b2b;
+		}
+	}
+
+	&__clock {
+		width: 50px;
+		height: 50px;
+		display: block;
+		margin-right: 10px;
 	}
 
 	&__content {
@@ -388,6 +453,8 @@ export default {
 
 	&__gallows {
 		width: 300px;
+		padding-left: 50px;
+		flex-shrink: 0;
 	}
 
 	&__letters {
@@ -407,6 +474,7 @@ export default {
 		cursor: pointer;
 		transition: .2s ease;
 		position: relative;
+		user-select: none;
 
 		&:hover {
 			background: #e7e7e7;
@@ -458,8 +526,9 @@ export default {
 	&__word {
 		&-letter {
 			margin: 0 10px;
-			border-bottom: 2px solid #000;
-			width: 75px;
+			color: #5e5e5e;
+			border-bottom: 2px solid #5e5e5e;
+			max-width: 75px;
 			height: 50px;
 			font-size: 40px;
 			display: flex;

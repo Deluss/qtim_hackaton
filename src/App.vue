@@ -1,32 +1,35 @@
 <template>
   <div id="app">
-<!--    <HelloWorld msg="Welcome to Your Vue.js App"/>-->
-    <main-page-component />
+		<welcome-page
+			v-if="showWelcomePage"
+			@update="goGame"
+		/>
+    <game-page
+			v-else
+		/>
   </div>
 </template>
 
 <script>
-import MainPageComponent from "@/components/MainPageComponent.vue";
+import GamePage from '@/components/GamePage.vue'
+import WelcomePage from '@/components/WelcomePage.vue'
+
 export default {
   name: 'App',
   components: {
-    MainPageComponent,
+		GamePage,
+		WelcomePage
   },
-  mounted() {
-    this.generateNick()
-  },
-  methods: {
-    generateNick(){
-      let nick = this.$store.getters.nickname;
-      if (!nick){
-        nick = `player-${(Math.random() + 1).toString(36).substring(7)}`
-        this.$store.commit('setNickName', nick)
-        this.nickname = nick
-      }else{
-        this.nickname = nick
-      }
-    },
-  }
+	data () {
+		return {
+			showWelcomePage: true
+		}
+	},
+	methods: {
+		goGame () {
+			this.showWelcomePage = false
+		}
+	}
 }
 </script>
 
