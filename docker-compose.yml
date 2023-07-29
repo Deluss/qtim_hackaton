@@ -1,0 +1,13 @@
+version: '3.7'
+
+services:
+    client:
+        container_name: hackaton-front
+        build:
+            context: .
+            dockerfile: Dockerfile
+        volumes:
+            - '.:/src'
+            - '/src/node_modules'
+        ports:
+            - '7000:8080'
