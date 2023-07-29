@@ -1,15 +1,5 @@
 <template>
 	<div class="game">
-		<transition name="fade">
-			<div
-				v-if="showFinish"
-				class="game__finish"
-			>
-				<div class="game__finish-content">
-					{{ finishMessage }}
-				</div>
-			</div>
-		</transition>
 		<div class="game__container">
 			<div class="game__header">
 				<div class="game__theme">
@@ -21,6 +11,16 @@
 			</div>
 			<div class="game__content">
 				<div class="game__main">
+					<transition name="fade">
+						<div
+							v-if="showFinish"
+							class="game__finish"
+						>
+							<div class="game__finish-content">
+								{{ finishMessage }}
+							</div>
+						</div>
+					</transition>
 					<div class="game__word">
 						<div
 							v-for="(wordLetter, index) in searchWord"
@@ -62,7 +62,8 @@ export default {
 			intervalId: null,
 			searchWord: [],
 			showFinish: false,
-			finishMessage: ''
+			finishMessage: '',
+			audio: new Audio(require('@/assets/pencil.mp3'))
 		}
 	},
 	computed: {
@@ -123,10 +124,13 @@ export default {
 				item.state = 'absent'
 				item.position = []
 				this.attempts += 1
+				this.playSound()
 				this.drawHangman()
 				if (this.attempts === 10) {
 					this.finishMessage = 'Вы проиграли'
 					this.showFinish = true
+					clearInterval(this.intervalId)
+					this.intervalId = null
 				}
 			}
 			this.setPosition(item)
@@ -137,6 +141,10 @@ export default {
 					this.searchWord[position] = item.letter
 				})
 			}
+		},
+		playSound () {
+			this.audio.playbackRate = 1.3
+			this.audio.play()
 		},
 		drawHangman() {
 			const canvas = this.$refs.hangmanCanvas;
@@ -253,7 +261,7 @@ export default {
 	font-family: 'Roboto', sans-serif;
 
 	&__finish {
-		position: fixed;
+		position: absolute;
 		top: 0;
 		left: 0;
 		width: 100%;
@@ -306,6 +314,10 @@ export default {
 		display: flex;
 		align-items: flex-start;
 		margin-top: 80px;
+	}
+
+	&__main {
+		position: relative;
 	}
 
 	&__gallows {
