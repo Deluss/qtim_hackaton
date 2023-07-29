@@ -14,9 +14,9 @@ ENV PATH /src/node_modules/.bin:$PATH
 
 # install and cache app dependencies
 COPY package.json /src/package.json
-COPY package-lock.json /src/package-lock.json
 
-RUN npm ci
+
+RUN npm i
 
 
 # start app
