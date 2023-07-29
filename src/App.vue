@@ -1,17 +1,31 @@
 <template>
   <div id="app">
-    <img alt="Vue logo" src="./assets/logo.png">
-    <HelloWorld msg="Welcome to Your Vue.js App"/>
+<!--    <HelloWorld msg="Welcome to Your Vue.js App"/>-->
+    <main-page-component />
   </div>
 </template>
 
 <script>
-import HelloWorld from './components/HelloWorld.vue'
-
+import MainPageComponent from "@/components/MainPageComponent.vue";
 export default {
   name: 'App',
   components: {
-    HelloWorld
+    MainPageComponent,
+  },
+  mounted() {
+    this.generateNick()
+  },
+  methods: {
+    generateNick(){
+      let nick = this.$store.getters.nickname;
+      if (!nick){
+        nick = `player-${(Math.random() + 1).toString(36).substring(7)}`
+        this.$store.commit('setNickName', nick)
+        this.nickname = nick
+      }else{
+        this.nickname = nick
+      }
+    },
   }
 }
 </script>
