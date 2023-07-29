@@ -41,7 +41,7 @@ export default {
     async joinRoom(){
       try {
         axios
-            .post(`http://localhost:3000/api/room/join`, {}, {headers: {nickname: this.$store.getters.nickname}})
+            .post(`${this.url}/api/room/join`, {}, {headers: {nickname: this.$store.getters.nickname}})
             .then(res => {
               const temp = res.data.response;
               this.rooms.push({
