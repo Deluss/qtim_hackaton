@@ -259,6 +259,7 @@ export default {
 <style lang="scss" scoped>
 .game {
 	font-family: 'Roboto', sans-serif;
+	padding-left: 25%;
 
 	&__finish {
 		position: absolute;
