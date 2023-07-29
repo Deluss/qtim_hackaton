@@ -7,7 +7,7 @@
         </div>
       </div>
       <div class="room-list_element__right">
-        <div class="room-list_element__state" :class="elem.state">
+        <div class="room-list_element__state" :class="elem.state.toLowerCase()">
         </div>
         <div class="room-list_element__amt">
           {{elem.amt}} / 2
@@ -18,40 +18,43 @@
 </template>
 
 <script>
+import axios from 'axios'
+
 export default {
   name: "RoomsListComponent",
   emits: ['open-room'],
   data() {
     return {
-      rooms: []
+      rooms: [],
+      url: undefined
       }
   },
   mounted() {
-    this.rooms = [
-      {
-        id: '1231',
-        name: 'room - 1',
-        state: 'wait',
-        amt: 0,
-      },
-      {
-        id: '1232',
-        name: 'room - 2',
-        state: 'play',
-        amt: 2,
-      },
-      {
-        id: '1233',
-        name: 'room - 3',
-        state: 'closed',
-        amt: 1,
-      }
-    ]
+    this.url = process.env.VUE_APP_BACKROOM_URL
+    this.joinRoom()
   },
   methods: {
     openRoom(elemId){
       if(!elemId) return
       this.$emit('open-room', elemId)
+    },
+    async joinRoom(){
+      try {
+        axios
+            .post(`http://localhost:3000/api/room/join`)
+            .then(res => {
+              const temp = res.data.response;
+              this.rooms.push({
+                id: temp.id,
+                name: `room - ${temp.id}`,
+                state: temp.status,
+                amt: 0,
+              });
+              this.$emit('open-room', temp.id)
+            });
+      }catch (e) {
+        this.rooms = []
+      }
     }
   }
 }
@@ -82,7 +85,7 @@ export default {
       height: 16px;
       border-radius: 25px;
       background-color: whitesmoke;
-      &.wait{
+      &.waiting{
         background-color: orange;
       }
       &.play{
